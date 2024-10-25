@@ -1,8 +1,10 @@
 package com.example.contactsapp
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.net.Uri
 import android.os.Bundle
+import android.widget.Space
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -10,11 +12,17 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.R
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,12 +33,16 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import androidx.room.Room
 import coil.compose.rememberAsyncImagePainter
 import com.example.contactsapp.ui.theme.ContactsAppTheme
 import com.example.contactsapp.ui.theme.GreenJC
 import java.io.File
 import java.io.FileOutputStream
+import androidx.compose.foundation.lazy.items
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,13 +55,94 @@ class MainActivity : ComponentActivity() {
         val viewModel: ContactViewModel by viewModels { ContactViewModelFactory(repository) }
 
         setContent {
-            ContactsAppTheme {
-                AddContactScreen(viewModel, /* Pass navController here */)
+           val navController = rememberNavController()
+            NavHost(navController = navController, startDestination = "contactList") {
+                composable("contactList") { ContactListScreen(viewModel, navController)}
+                composable("addContact") { AddContactScreen(viewModel, navController )
+                }
+                
             }
         }
     }
 }
 
+@Composable
+fun ContactItem(contact: Contact, onClick:() -> Unit) {
+    Card (
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(Color.White),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ){
+        Row (modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Image(painter = rememberAsyncImagePainter(contact.image), contentDescription = contact.name,
+                modifier = Modifier
+                    .size(50.dp)
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop)
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(contact.name)
+        }
+    }
+}
+@Composable
+fun ContactListScreen(viewModel: ContactViewModel, navController: NavController) {
+    val context = LocalContext.current
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                modifier = Modifier.height(48.dp),
+                title = {
+                    Box(modifier = Modifier
+                        .fillMaxHeight()
+                        .wrapContentHeight(Alignment.CenterVertically)) {
+                        Text("Contacts", fontSize = 18.sp)
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = {
+                        Toast.makeText(context, "Contacts", Toast.LENGTH_SHORT).show()
+                    }) {
+                        Icon(painter = painterResource(id = R.drawable.contacticon), contentDescription = "Contact Icon")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = GreenJC,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White
+                )
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(containerColor = GreenJC, onClick = { navController.navigate("addContact")
+            }) {
+                Icon(imageVector = Icons.Default.Add, contentDescription = "Add Contact"  )
+            }
+        }
+    ) { paddingValues ->
+        val contacts by viewModel.allContacts.observeAsState(initial = emptyList())
+        LazyColumn (modifier = Modifier.padding(paddingValues)
+        ) {
+            items(contacts){ contact ->
+                ContactItem(contact = contact) {
+                    navController.navigate("contactDetail/${contact.id}")
+                }
+
+            }
+        }
+    }
+}
+
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddContactScreen(viewModel: ContactViewModel, navController: NavController) {
     val context = LocalContext.current
